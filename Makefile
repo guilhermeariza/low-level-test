@@ -11,7 +11,10 @@ TESTDIR = tests
 SOURCES = $(SRCDIR)/main.asm $(SRCDIR)/x11.asm $(SRCDIR)/render.asm \
           $(SRCDIR)/input.asm $(SRCDIR)/game.asm $(SRCDIR)/map.asm \
           $(SRCDIR)/entities.asm $(SRCDIR)/collision.asm $(SRCDIR)/hud.asm \
-          $(SRCDIR)/math.asm $(SRCDIR)/data.asm
+          $(SRCDIR)/math.asm $(SRCDIR)/data.asm \
+          $(SRCDIR)/pathfinding.asm $(SRCDIR)/combat.asm $(SRCDIR)/level.asm \
+          $(SRCDIR)/abilities.asm $(SRCDIR)/items.asm $(SRCDIR)/vision.asm \
+          $(SRCDIR)/summ_spells.asm $(SRCDIR)/jungle.asm
 
 OBJECTS = $(patsubst $(SRCDIR)/%.asm,$(BUILDDIR)/%.o,$(SOURCES))
 

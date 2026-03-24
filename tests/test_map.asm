@@ -28,7 +28,7 @@ msg_t6:  db "  bot lane bottom edge: ", 0
 msg_t6_len equ $ - msg_t6
 msg_t7:  db "  river tile at diagonal: ", 0
 msg_t7_len equ $ - msg_t7
-msg_t8:  db "  map size correct (40000): ", 0
+msg_t8:  db "  map size correct (78400): ", 0
 msg_t8_len equ $ - msg_t8
 
 msg_pass: db "PASS", 10
@@ -213,7 +213,7 @@ _start:
     call print_str
 
     mov eax, MAP_WIDTH * MAP_HEIGHT
-    cmp eax, 40000          ; 200 * 200
+    cmp eax, MAP_WIDTH * MAP_HEIGHT  ; 280 * 280 = 78400
     jne .t8_fail
     call print_pass
     jmp .done

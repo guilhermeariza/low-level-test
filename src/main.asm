@@ -31,6 +31,16 @@ extern map_init, map_render
 extern hud_render_entity_bars, hud_render_entities, hud_render_panel
 extern hud_update_fps, fps_display
 
+; New subsystems
+extern collision_map_init
+extern combat_init
+extern level_init, level_update
+extern abilities_init, abilities_tick_cooldowns
+extern items_init
+extern vision_init, vision_update, vision_render_fog
+extern summ_init, summ_tick_cooldowns
+extern jungle_init, jungle_update
+
 ; Data
 extern str_fps, str_game_title
 
@@ -65,6 +75,14 @@ _start:
     call input_init
     call entities_init
     call map_init
+    call collision_map_init
+    call combat_init
+    call level_init
+    call abilities_init
+    call items_init
+    call vision_init
+    call summ_init
+    call jungle_init
     call game_init
 
     ; === MAIN GAME LOOP ===
@@ -87,6 +105,11 @@ _start:
 
     ; --- Update game logic ---
     call game_update
+    call level_update
+    call abilities_tick_cooldowns
+    call summ_tick_cooldowns
+    call jungle_update
+    call vision_update
 
     ; --- Render frame ---
     ; Clear screen
@@ -101,6 +124,9 @@ _start:
 
     ; Render HP bars above entities
     call hud_render_entity_bars
+
+    ; Render fog of war overlay
+    call vision_render_fog
 
     ; Render HUD panel
     call hud_render_panel
