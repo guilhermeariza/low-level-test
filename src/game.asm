@@ -22,10 +22,23 @@ extern entity_spawn, entity_set_stats, entity_kill, entity_deactivate
 ; Input
 extern mouse_x, mouse_y, mouse_clicked_left, mouse_clicked_right
 extern mouse_click_x, mouse_click_y
+extern key_pressed, key_state
 
 ; Math
 extern math_distance, math_distance_sq, math_move_toward
 extern math_int_to_double
+
+; Abilities
+extern abilities_cast, abilities_level_up
+
+; Items
+extern items_buy
+
+; Summoner spells
+extern summ_cast
+
+; Combat
+extern combat_apply_damage
 
 ; Map
 extern map_waypoints_top_blue, map_waypoints_top_red
@@ -54,6 +67,10 @@ game_time:      resd 1          ; game time in seconds
 ; Wave spawning
 global wave_timer
 wave_timer:     resd 1          ; frames until next wave
+
+; Recall timer per entity
+global ent_recall_timer
+ent_recall_timer: resd MAX_ENTITIES
 
 ; Temp storage for function calls
 alignb 8
@@ -439,6 +456,121 @@ game_handle_input:
 
 .no_target_found:
 .no_left_click:
+
+    ; --- Ability keys Q/W/E/R ---
+    lea rax, [rel key_pressed]
+
+    ; Q ability (slot 1)
+    cmp byte [rax + KEY_Q], 0
+    je .no_key_q
+    mov edi, PLAYER_ID
+    mov esi, SLOT_Q
+    mov edx, -1             ; no target for now (self/auto)
+    call abilities_cast
+.no_key_q:
+
+    lea rax, [rel key_pressed]
+    ; W ability (slot 2)
+    cmp byte [rax + KEY_W], 0
+    je .no_key_w
+    mov edi, PLAYER_ID
+    mov esi, SLOT_W
+    mov edx, -1
+    call abilities_cast
+.no_key_w:
+
+    lea rax, [rel key_pressed]
+    ; E ability (slot 3)
+    cmp byte [rax + KEY_E], 0
+    je .no_key_e
+    mov edi, PLAYER_ID
+    mov esi, SLOT_E
+    mov edx, -1
+    call abilities_cast
+.no_key_e:
+
+    lea rax, [rel key_pressed]
+    ; R ability (slot 4)
+    cmp byte [rax + KEY_R], 0
+    je .no_key_r
+    mov edi, PLAYER_ID
+    mov esi, SLOT_R
+    mov edx, -1
+    call abilities_cast
+.no_key_r:
+
+    ; --- Summoner spells D/F ---
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_D], 0
+    je .no_key_d
+    mov edi, PLAYER_ID
+    mov esi, 0              ; spell slot 1
+    mov edx, -1
+    call summ_cast
+.no_key_d:
+
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_F], 0
+    je .no_key_f
+    mov edi, PLAYER_ID
+    mov esi, 1              ; spell slot 2
+    mov edx, -1
+    call summ_cast
+.no_key_f:
+
+    ; --- Recall (B key) ---
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_B], 0
+    je .no_key_b
+    lea rax, [rel ent_state]
+    mov byte [rax + PLAYER_ID], STATE_RECALLING
+.no_key_b:
+
+    ; --- Stop (S key) ---
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_S], 0
+    je .no_key_s
+    lea rax, [rel ent_state]
+    mov byte [rax + PLAYER_ID], STATE_IDLE
+    lea rax, [rel ent_atk_target]
+    mov dword [rax + PLAYER_ID * 4], -1
+.no_key_s:
+
+    ; --- Ctrl+QWER: Level up abilities ---
+    lea rax, [rel key_state]
+    cmp byte [rax + KEY_CTRL_L], 0
+    je .no_ctrl_skills
+
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_Q], 0
+    je .no_ctrl_q
+    mov edi, PLAYER_ID
+    mov esi, SLOT_Q
+    call abilities_level_up
+.no_ctrl_q:
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_W], 0
+    je .no_ctrl_w
+    mov edi, PLAYER_ID
+    mov esi, SLOT_W
+    call abilities_level_up
+.no_ctrl_w:
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_E], 0
+    je .no_ctrl_e
+    mov edi, PLAYER_ID
+    mov esi, SLOT_E
+    call abilities_level_up
+.no_ctrl_e:
+    lea rax, [rel key_pressed]
+    cmp byte [rax + KEY_R], 0
+    je .no_ctrl_r
+    mov edi, PLAYER_ID
+    mov esi, SLOT_R
+    call abilities_level_up
+.no_ctrl_r:
+.no_ctrl_skills:
+
     pop rbx
     ret
 
@@ -633,6 +765,10 @@ game_update_entities:
     cmp al, STATE_DEAD
     je .entity_next
 
+    ; Handle recall channeling
+    cmp al, STATE_RECALLING
+    je .do_recall
+
     ; Handle movement
     cmp al, STATE_MOVING
     je .do_movement
@@ -649,6 +785,51 @@ game_update_entities:
     cmp al, ENT_TOWER
     je .tower_ai
 
+    jmp .entity_next
+
+.do_recall:
+    ; Increment recall timer
+    lea rax, [rel ent_recall_timer]
+    inc dword [rax + rbx * 4]
+    cmp dword [rax + rbx * 4], RECALL_CHANNEL_TIME
+    jl .entity_next
+
+    ; Recall complete - teleport to base
+    mov dword [rax + rbx * 4], 0
+    lea rax, [rel ent_team]
+    movzx eax, byte [rax + rbx]
+    cmp al, TEAM_BLUE
+    je .recall_blue
+    ; Red base
+    mov eax, MAP_PIXEL_WIDTH - 400
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 400
+    jmp .recall_set_pos
+.recall_blue:
+    mov eax, 400
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 400
+.recall_set_pos:
+    vcvtsi2sd xmm1, xmm1, eax
+    lea rax, [rel ent_x]
+    movsd [rax + rbx * 8], xmm0
+    lea rax, [rel ent_y]
+    movsd [rax + rbx * 8], xmm1
+    lea rax, [rel ent_target_x]
+    movsd [rax + rbx * 8], xmm0
+    lea rax, [rel ent_target_y]
+    movsd [rax + rbx * 8], xmm1
+    ; Heal to full
+    lea rax, [rel ent_max_hp]
+    mov ecx, [rax + rbx * 4]
+    lea rax, [rel ent_hp]
+    mov [rax + rbx * 4], ecx
+    lea rax, [rel ent_max_mana]
+    mov ecx, [rax + rbx * 4]
+    lea rax, [rel ent_mana]
+    mov [rax + rbx * 4], ecx
+    lea rax, [rel ent_state]
+    mov byte [rax + rbx], STATE_IDLE
     jmp .entity_next
 
 .do_movement:

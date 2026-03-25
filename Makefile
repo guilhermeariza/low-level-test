@@ -14,7 +14,9 @@ SOURCES = $(SRCDIR)/main.asm $(SRCDIR)/x11.asm $(SRCDIR)/render.asm \
           $(SRCDIR)/math.asm $(SRCDIR)/data.asm \
           $(SRCDIR)/pathfinding.asm $(SRCDIR)/combat.asm $(SRCDIR)/level.asm \
           $(SRCDIR)/abilities.asm $(SRCDIR)/items.asm $(SRCDIR)/vision.asm \
-          $(SRCDIR)/summ_spells.asm $(SRCDIR)/jungle.asm
+          $(SRCDIR)/summ_spells.asm $(SRCDIR)/jungle.asm \
+          $(SRCDIR)/ui.asm $(SRCDIR)/ai.asm $(SRCDIR)/effects.asm \
+          $(SRCDIR)/audio.asm $(SRCDIR)/menu.asm $(SRCDIR)/network.asm
 
 OBJECTS = $(patsubst $(SRCDIR)/%.asm,$(BUILDDIR)/%.o,$(SOURCES))
 
