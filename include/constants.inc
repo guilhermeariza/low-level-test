@@ -15,6 +15,18 @@
 %define MAX_BUFFS           16
 %define MAX_PROJECTILES     128
 %define MAX_PARTICLES       256
+%define MAX_DAMAGE_NUMS     32
+
+; ==============================
+; Game states
+; ==============================
+%define GAMESTATE_MENU          0
+%define GAMESTATE_CHAMP_SELECT  1
+%define GAMESTATE_LOADING       2
+%define GAMESTATE_PLAYING       3
+%define GAMESTATE_PAUSED        4
+%define GAMESTATE_VICTORY       5
+%define GAMESTATE_DEFEAT        6
 %define MAX_ITEMS           200
 %define MAX_WARDS           50
 

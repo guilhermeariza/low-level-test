@@ -18,6 +18,7 @@ extern ent_respawn_timer, ent_lane, ent_waypoint_idx
 extern ent_gold, ent_level, ent_xp, ent_count
 
 extern entity_spawn, entity_set_stats, entity_kill, entity_deactivate
+extern menu_set_victory, menu_set_defeat, game_state
 
 ; Input
 extern mouse_x, mouse_y, mouse_clicked_left, mouse_clicked_right
@@ -39,6 +40,12 @@ extern summ_cast
 
 ; Combat
 extern combat_apply_damage
+
+; Effects
+extern effects_spawn_attack_line, effects_spawn_death, effects_spawn_damage_num
+
+; UI kill feed
+extern ui_add_kill_feed
 
 ; Map
 extern map_waypoints_top_blue, map_waypoints_top_red
@@ -65,8 +72,9 @@ game_frame:     resd 1          ; frame counter
 game_time:      resd 1          ; game time in seconds
 
 ; Wave spawning
-global wave_timer
+global wave_timer, wave_count
 wave_timer:     resd 1          ; frames until next wave
+wave_count:     resd 1          ; number of waves spawned
 
 ; Recall timer per entity
 global ent_recall_timer
@@ -143,6 +151,18 @@ game_init:
 
     ; Red towers - bot lane
     call .spawn_red_tower_bot
+
+    ; --- Spawn Nexus ---
+    call .spawn_blue_nexus
+    call .spawn_red_nexus
+
+    ; --- Spawn Inhibitors ---
+    call .spawn_blue_inhib_top
+    call .spawn_blue_inhib_mid
+    call .spawn_blue_inhib_bot
+    call .spawn_red_inhib_top
+    call .spawn_red_inhib_mid
+    call .spawn_red_inhib_bot
 
     pop r12
     pop rbx
@@ -305,6 +325,160 @@ game_init:
     add rsp, 8
     ret
 
+; Nexus spawn helpers
+.spawn_blue_nexus:
+    mov edi, ENT_NEXUS
+    mov esi, TEAM_BLUE
+    mov eax, 200
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 200
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, NEXUS_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_red_nexus:
+    mov edi, ENT_NEXUS
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH - 200
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 200
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, NEXUS_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+; Inhibitor spawn helpers
+.spawn_blue_inhib_top:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_BLUE
+    mov eax, 300
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT / 2 - 500
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_blue_inhib_mid:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_BLUE
+    mov eax, 800
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 800
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_blue_inhib_bot:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_BLUE
+    mov eax, MAP_PIXEL_WIDTH / 2 - 500
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 300
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_red_inhib_top:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH / 2 + 500
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 300
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_red_inhib_mid:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH - 800
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 800
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
+.spawn_red_inhib_bot:
+    mov edi, ENT_INHIBITOR
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH - 300
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT / 2 + 500
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    mov edi, eax
+    mov esi, INHIBITOR_HP
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    xor r9d, r9d
+    push qword 0
+    call entity_set_stats
+    add rsp, 8
+    ret
+
 ; ============================================================================
 ; game_update - Main game update (called once per frame)
 ; ============================================================================
@@ -346,6 +520,9 @@ game_update:
 
     ; --- Process respawns ---
     call game_process_respawns
+
+    ; --- Check win/loss condition ---
+    call game_check_win_condition
 
     pop rbp
     pop r15
@@ -642,10 +819,26 @@ game_spawn_waves:
     ; Reset timer
     mov dword [wave_timer], MINION_WAVE_INTERVAL
 
+    ; Increment wave count
+    inc dword [wave_count]
+
     ; Spawn blue team minions (mid lane)
     mov r12d, 0             ; lane = mid
     call .spawn_wave_for_team_blue
+    call .spawn_casters_for_team_blue
     call .spawn_wave_for_team_red
+    call .spawn_casters_for_team_red
+
+    ; Every 3rd wave, spawn cannon minions
+    mov eax, [wave_count]
+    xor edx, edx
+    mov ecx, 3
+    div ecx
+    test edx, edx
+    jnz .no_spawn
+
+    call .spawn_cannon_blue
+    call .spawn_cannon_red
 
 .no_spawn:
     pop r12
@@ -736,6 +929,124 @@ game_spawn_waves:
     jmp .red_melee_loop
 .red_melee_done:
     pop r13
+    ret
+
+.spawn_casters_for_team_blue:
+    push r13
+    mov r13d, 3             ; 3 caster minions
+.blue_caster_loop:
+    test r13d, r13d
+    jz .blue_caster_done
+    mov edi, ENT_MINION_CASTER
+    mov esi, TEAM_BLUE
+    mov eax, 560
+    add eax, r13d
+    shl eax, 4
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 520
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    cmp eax, -1
+    je .blue_caster_done
+    mov edi, eax
+    mov esi, MINION_CASTER_HP
+    xor edx, edx
+    mov ecx, MINION_CASTER_AD
+    mov r8d, MINION_CASTER_RANGE
+    mov r9d, MINION_CASTER_SPEED
+    push qword 70
+    call entity_set_stats
+    add rsp, 8
+    lea rax, [rel ent_lane]
+    mov byte [rax + rdi], 1
+    dec r13d
+    jmp .blue_caster_loop
+.blue_caster_done:
+    pop r13
+    ret
+
+.spawn_casters_for_team_red:
+    push r13
+    mov r13d, 3
+.red_caster_loop:
+    test r13d, r13d
+    jz .red_caster_done
+    mov edi, ENT_MINION_CASTER
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH - 560
+    sub eax, r13d
+    shl eax, 4
+    shr eax, 4
+    add eax, MAP_PIXEL_WIDTH - 620
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 520
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    cmp eax, -1
+    je .red_caster_done
+    mov edi, eax
+    mov esi, MINION_CASTER_HP
+    xor edx, edx
+    mov ecx, MINION_CASTER_AD
+    mov r8d, MINION_CASTER_RANGE
+    mov r9d, MINION_CASTER_SPEED
+    push qword 70
+    call entity_set_stats
+    add rsp, 8
+    lea rax, [rel ent_lane]
+    mov byte [rax + rdi], 1
+    dec r13d
+    jmp .red_caster_loop
+.red_caster_done:
+    pop r13
+    ret
+
+.spawn_cannon_blue:
+    mov edi, ENT_MINION_CANNON
+    mov esi, TEAM_BLUE
+    mov eax, 530
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, MAP_PIXEL_HEIGHT - 540
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    cmp eax, -1
+    je .cannon_blue_done
+    mov edi, eax
+    mov esi, MINION_CANNON_HP
+    xor edx, edx
+    mov ecx, MINION_CANNON_AD
+    mov r8d, MINION_CANNON_RANGE
+    mov r9d, MINION_CANNON_SPEED
+    push qword 60
+    call entity_set_stats
+    add rsp, 8
+    lea rax, [rel ent_lane]
+    mov byte [rax + rdi], 1
+.cannon_blue_done:
+    ret
+
+.spawn_cannon_red:
+    mov edi, ENT_MINION_CANNON
+    mov esi, TEAM_RED
+    mov eax, MAP_PIXEL_WIDTH - 530
+    vcvtsi2sd xmm0, xmm0, eax
+    mov eax, 540
+    vcvtsi2sd xmm1, xmm1, eax
+    call entity_spawn
+    cmp eax, -1
+    je .cannon_red_done
+    mov edi, eax
+    mov esi, MINION_CANNON_HP
+    xor edx, edx
+    mov ecx, MINION_CANNON_AD
+    mov r8d, MINION_CANNON_RANGE
+    mov r9d, MINION_CANNON_SPEED
+    push qword 60
+    call entity_set_stats
+    add rsp, 8
+    lea rax, [rel ent_lane]
+    mov byte [rax + rdi], 1
+.cannon_red_done:
     ret
 
 ; ============================================================================
@@ -1112,12 +1423,68 @@ game_process_combat:
     lea rax, [rel ent_hp]
     sub [rax + rcx * 4], edx    ; target_hp -= my_damage
 
+    ; Spawn attack line effect: attacker pos → target pos
+    push rbx
+    push rcx
+    push rdx
+    lea rax, [rel ent_x]
+    vcvtsd2si edi, [rax + rbx * 8]     ; attacker x (int)
+    lea rax, [rel ent_y]
+    vcvtsd2si esi, [rax + rbx * 8]     ; attacker y
+    lea rax, [rel ent_x]
+    vcvtsd2si edx, [rax + rcx * 8]     ; target x
+    lea rax, [rel ent_y]
+    vcvtsd2si ecx, [rax + rcx * 8]     ; target y
+    mov r8d, 0xFFFF00                  ; yellow color
+    call effects_spawn_attack_line
+    pop rdx
+    pop rcx
+    pop rbx
+
+    ; Spawn floating damage number at target position
+    push rbx
+    push rcx
+    push rdx
+    lea rax, [rel ent_x]
+    vcvtsd2si edi, [rax + rcx * 8]
+    lea rax, [rel ent_y]
+    vcvtsd2si esi, [rax + rcx * 8]
+    mov edx, [rsp + 8]                 ; damage value (original edx on stack)
+    mov ecx, 0xFFFFFF                  ; white
+    call effects_spawn_damage_num
+    pop rdx
+    pop rcx
+    pop rbx
+
     ; Check if target died
+    lea rax, [rel ent_hp]
     cmp dword [rax + rcx * 4], 0
     jg .set_cooldown
 
     ; Target died!
     mov dword [rax + rcx * 4], 0
+
+    ; Spawn death particles at target position
+    push rbx
+    push rcx
+    lea rax, [rel ent_x]
+    vcvtsd2si edi, [rax + rcx * 8]
+    lea rax, [rel ent_y]
+    vcvtsd2si esi, [rax + rcx * 8]
+    mov edx, 0xFF4400                  ; orange-red death color
+    call effects_spawn_death
+    pop rcx
+    pop rbx
+
+    ; Add kill feed entry (killer=rbx, victim=rcx)
+    push rbx
+    push rcx
+    mov edi, ebx
+    mov esi, ecx
+    call ui_add_kill_feed
+    pop rcx
+    pop rbx
+
     push rcx
     mov edi, ecx
     call entity_kill
@@ -1280,6 +1647,64 @@ game_process_respawns:
     jmp .respawn_loop
 
 .respawn_done:
+    pop r12
+    pop rbx
+    ret
+
+; ============================================================================
+; game_check_win_condition - Check if a Nexus has been destroyed
+; ============================================================================
+game_check_win_condition:
+    push rbx
+    push r12
+
+    mov r12d, [ent_count]
+    xor ebx, ebx
+
+.win_loop:
+    cmp ebx, r12d
+    jge .win_done
+
+    ; Only check Nexus entities
+    lea rax, [rel ent_type]
+    cmp byte [rax + rbx], ENT_NEXUS
+    jne .win_next
+
+    ; Check if dead or inactive
+    lea rax, [rel ent_state]
+    cmp byte [rax + rbx], STATE_DEAD
+    je .nexus_dead
+    lea rax, [rel ent_active]
+    cmp byte [rax + rbx], 0
+    je .nexus_dead
+    jmp .win_next
+
+.nexus_dead:
+    ; Which team's nexus died?
+    lea rax, [rel ent_team]
+    cmp byte [rax + rbx], TEAM_BLUE
+    je .blue_nexus_dead
+    cmp byte [rax + rbx], TEAM_RED
+    je .red_nexus_dead
+    jmp .win_next
+
+.blue_nexus_dead:
+    ; Blue nexus destroyed = defeat
+    call menu_set_defeat
+    mov dword [game_state], GAMESTATE_DEFEAT
+    jmp .win_done
+
+.red_nexus_dead:
+    ; Red nexus destroyed = victory
+    call menu_set_victory
+    mov dword [game_state], GAMESTATE_VICTORY
+    jmp .win_done
+
+.win_next:
+    inc ebx
+    jmp .win_loop
+
+.win_done:
     pop r12
     pop rbx
     ret

@@ -41,6 +41,24 @@ extern vision_init, vision_update, vision_render_fog
 extern summ_init, summ_tick_cooldowns
 extern jungle_init, jungle_update
 
+; UI
+extern ui_init, ui_update
+extern ui_render_ability_bar, ui_render_inventory
+extern ui_render_stats_panel, ui_render_scoreboard, ui_render_kill_feed
+
+; AI
+extern ai_init, ai_update
+
+; Effects
+extern effects_init, effects_update, effects_render
+
+; Audio
+extern audio_init, audio_update, audio_cleanup
+
+; Menu
+extern menu_init, menu_update, menu_render
+extern game_state
+
 ; Data
 extern str_fps, str_game_title
 
@@ -83,6 +101,11 @@ _start:
     call vision_init
     call summ_init
     call jungle_init
+    call ui_init
+    call ai_init
+    call effects_init
+    call audio_init
+    call menu_init
     call game_init
 
     ; === MAIN GAME LOOP ===
@@ -103,6 +126,20 @@ _start:
     cmp dword [quit_flag], 0
     jne .exit_game
 
+    ; --- Check game state for menu vs playing ---
+    cmp dword [game_state], 3       ; GAMESTATE_PLAYING
+    je .state_playing
+
+    ; Non-playing states: menu, champion select, loading, etc.
+    call menu_update
+
+    mov edi, COLOR_BLACK
+    call render_clear
+    call menu_render
+    call render_flush
+    jmp .frame_sleep
+
+.state_playing:
     ; --- Update game logic ---
     call game_update
     call level_update
@@ -110,6 +147,10 @@ _start:
     call summ_tick_cooldowns
     call jungle_update
     call vision_update
+    call ui_update
+    call ai_update
+    call effects_update
+    call audio_update
 
     ; --- Render frame ---
     ; Clear screen
@@ -125,11 +166,21 @@ _start:
     ; Render HP bars above entities
     call hud_render_entity_bars
 
+    ; Render visual effects (particles, damage numbers)
+    call effects_render
+
     ; Render fog of war overlay
     call vision_render_fog
 
     ; Render HUD panel
     call hud_render_panel
+
+    ; Render UI overlays
+    call ui_render_ability_bar
+    call ui_render_inventory
+    call ui_render_stats_panel
+    call ui_render_scoreboard
+    call ui_render_kill_feed
 
     ; Render FPS counter
     call hud_update_fps
@@ -148,6 +199,7 @@ _start:
     ; Flush frame to display
     call render_flush
 
+.frame_sleep:
     ; --- Frame timing ---
     ; Sleep to maintain ~60 FPS
     mov rax, SYS_CLOCK_NANOSLEEP
@@ -178,6 +230,7 @@ _start:
 ; Exit handlers
 ; ============================================================================
 .exit_game:
+    call audio_cleanup
     call x11_cleanup
 
 .exit:
