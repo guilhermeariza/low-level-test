@@ -14,7 +14,7 @@
 extern ent_x, ent_y, ent_hp, ent_max_hp, ent_type, ent_team, ent_state, ent_active
 extern ent_atk, ent_range, ent_speed, ent_atk_speed, ent_gold, ent_xp, ent_count
 extern entity_spawn, entity_set_stats
-extern game_frame
+extern game_frame, game_time
 
 ; ---------------------------------------------------------------------------
 ; Number of jungle camps
@@ -44,6 +44,9 @@ dragon_kills_red:       resd 1
 
 global baron_alive
 baron_alive:            resd 1
+
+global herald_alive
+herald_alive:           resd 1
 
 ; Entity indices for each camp (so we can check if they died)
 jungle_camp_ent_id:     resd 20
@@ -171,8 +174,9 @@ jungle_init:
     mov dword [rel dragon_kills_blue], 0
     mov dword [rel dragon_kills_red], 0
 
-    ; Baron not alive initially
+    ; Baron not alive initially, herald starts alive
     mov dword [rel baron_alive], 0
+    mov dword [rel herald_alive], 1
 
     ; Spawn all camps
     call jungle_spawn_all_camps
@@ -288,6 +292,18 @@ jungle_spawn_camp:
     lea rax, [rel jungle_camp_types]
     movzx edi, byte [rax + r14]
 
+    ; Camp 13: Herald before 20 min (1200 seconds), Baron after
+    cmp r14d, 13
+    jne .not_herald_check
+    cmp dword [rel game_time], 1200
+    jge .spawn_as_baron
+    ; Spawn as Herald
+    mov edi, ENT_HERALD
+    jmp .not_herald_check
+.spawn_as_baron:
+    mov edi, ENT_BARON
+.not_herald_check:
+
     ; Team = TEAM_NEUTRAL
     mov esi, TEAM_NEUTRAL
 
@@ -312,8 +328,17 @@ jungle_spawn_camp:
     ; Set stats
     mov edi, r15d
 
+    ; For Herald, use reduced HP (5000 vs Baron's higher HP)
+    cmp r14d, 13
+    jne .use_table_hp
+    cmp dword [rel game_time], 1200
+    jge .use_table_hp
+    mov esi, 5000               ; Herald HP
+    jmp .hp_set
+.use_table_hp:
     lea rax, [rel jungle_camp_hp]
     mov esi, [rax + r14 * 4]
+.hp_set:
 
     xor edx, edx               ; mana = 0
 
@@ -409,6 +434,15 @@ jungle_update:
     jmp .update_next
 
 .set_baron_timer:
+    ; Check if this was actually herald (before 20 min)
+    cmp dword [rel game_time], 1200
+    jge .baron_death
+    ; Herald died — set shorter respawn (6 min = 21600 frames)
+    lea rax, [rel jungle_respawn_timers]
+    mov dword [rax + rbx * 4], 21600
+    mov dword [rel herald_alive], 0
+    jmp .update_next
+.baron_death:
     lea rax, [rel jungle_respawn_timers]
     mov dword [rax + rbx * 4], BARON_RESPAWN
     mov dword [rel baron_alive], 0
@@ -432,9 +466,14 @@ jungle_update:
     call jungle_spawn_camp
     mov ebx, r14d               ; restore camp index
 
-    ; For baron, mark alive
+    ; For camp 13, mark baron or herald alive
     cmp ebx, 13
     jne .update_next
+    cmp dword [rel game_time], 1200
+    jge .mark_baron_alive
+    mov dword [rel herald_alive], 1
+    jmp .update_next
+.mark_baron_alive:
     mov dword [rel baron_alive], 1
 
 .update_next:

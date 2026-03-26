@@ -29,6 +29,7 @@ extern map_init, map_render
 
 ; HUD
 extern hud_render_entity_bars, hud_render_entities, hud_render_panel
+extern hud_render_death_screen
 extern hud_update_fps, fps_display
 
 ; New subsystems
@@ -174,6 +175,9 @@ _start:
 
     ; Render HUD panel
     call hud_render_panel
+
+    ; Render death screen overlay if player is dead
+    call hud_render_death_screen
 
     ; Render UI overlays
     call ui_render_ability_bar

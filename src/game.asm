@@ -41,6 +41,9 @@ extern summ_cast
 ; Combat
 extern combat_apply_damage
 
+; HUD stats
+extern player_kills, player_deaths, player_assists, player_cs
+
 ; Effects
 extern effects_spawn_attack_line, effects_spawn_death, effects_spawn_damage_num
 
@@ -1091,6 +1094,10 @@ game_update_entities:
     je .minion_ai
     cmp al, ENT_MINION_CASTER
     je .minion_ai
+    cmp al, ENT_MINION_CANNON
+    je .minion_ai
+    cmp al, ENT_MINION_SUPER
+    je .minion_ai
 
     ; Handle tower AI
     cmp al, ENT_TOWER
@@ -1498,7 +1505,9 @@ game_process_combat:
     cmp al, ENT_MINION_MELEE
     je .award_minion_gold
     cmp al, ENT_MINION_CASTER
-    je .award_minion_gold
+    je .award_caster_gold
+    cmp al, ENT_MINION_CANNON
+    je .award_cannon_gold
     cmp al, ENT_TOWER
     je .award_tower_gold
     cmp al, ENT_CHAMPION
@@ -1508,6 +1517,17 @@ game_process_combat:
 .award_minion_gold:
     lea rax, [rel ent_gold]
     add dword [rax + PLAYER_ID * 4], GOLD_PER_MINION
+    inc dword [player_cs]
+    jmp .stop_attacking
+.award_caster_gold:
+    lea rax, [rel ent_gold]
+    add dword [rax + PLAYER_ID * 4], GOLD_PER_MINION_CASTER
+    inc dword [player_cs]
+    jmp .stop_attacking
+.award_cannon_gold:
+    lea rax, [rel ent_gold]
+    add dword [rax + PLAYER_ID * 4], GOLD_PER_MINION_CANNON
+    inc dword [player_cs]
     jmp .stop_attacking
 .award_tower_gold:
     lea rax, [rel ent_gold]
@@ -1516,6 +1536,7 @@ game_process_combat:
 .award_champion_gold:
     lea rax, [rel ent_gold]
     add dword [rax + PLAYER_ID * 4], GOLD_PER_CHAMPION
+    inc dword [player_kills]
     jmp .stop_attacking
 
 .no_gold_award:
@@ -1583,7 +1604,11 @@ game_process_respawns:
     je .respawn_minion
     cmp al, ENT_MINION_CASTER
     je .respawn_minion
-    jmp .respawn_next       ; towers don't respawn
+    cmp al, ENT_MINION_CANNON
+    je .respawn_minion
+    cmp al, ENT_MINION_SUPER
+    je .respawn_minion
+    jmp .respawn_next       ; towers/nexus/inhib don't respawn via timer
 
 .respawn_champion:
     lea rax, [rel ent_respawn_timer]

@@ -15,11 +15,12 @@ extern game_time, game_frame
 ; Entity data
 extern ent_x, ent_y, ent_hp, ent_max_hp, ent_mana, ent_max_mana
 extern ent_type, ent_team, ent_state, ent_active, ent_gold, ent_level
-extern ent_count
+extern ent_count, ent_respawn_timer
 
 ; Data
 extern str_hp, str_mana, str_gold, str_level, str_fps, str_time
 extern str_slash, str_colon
+extern str_cs, str_kda, str_kills, str_deaths, str_assists, str_respawn
 extern entity_radius_table, entity_color_table
 
 ; Map
@@ -34,6 +35,13 @@ global fps_counter, fps_display, fps_frame_count
 fps_counter:        resd 1
 fps_display:        resd 1
 fps_frame_count:    resd 1
+
+; Player stats tracking (KDA + CS)
+global player_kills, player_deaths, player_assists, player_cs
+player_kills:       resd 1
+player_deaths:      resd 1
+player_assists:     resd 1
+player_cs:          resd 1
 
 section .text
 
@@ -394,6 +402,56 @@ hud_render_panel:
     mov ecx, COLOR_WHITE
     call render_number
 
+    ; KDA display
+    lea rdi, [rel str_kills]
+    mov esi, 250
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_WHITE
+    call render_string
+
+    mov edi, [player_kills]
+    mov esi, 262
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_GREEN
+    call render_number
+
+    lea rdi, [rel str_slash]
+    mov esi, 285
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_GRAY
+    call render_string
+
+    mov edi, [player_deaths]
+    mov esi, 295
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_RED
+    call render_number
+
+    lea rdi, [rel str_slash]
+    mov esi, 318
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_GRAY
+    call render_string
+
+    mov edi, [player_assists]
+    mov esi, 328
+    mov edx, HUD_Y + 48
+    mov ecx, COLOR_YELLOW
+    call render_number
+
+    ; CS counter
+    lea rdi, [rel str_cs]
+    mov esi, 360
+    mov edx, HUD_Y + 30
+    mov ecx, COLOR_WHITE
+    call render_string
+
+    mov edi, [player_cs]
+    mov esi, 380
+    mov edx, HUD_Y + 30
+    mov ecx, COLOR_YELLOW
+    call render_number
+
     ; Game time
     lea rdi, [rel str_time]
     mov esi, 400
@@ -621,4 +679,62 @@ hud_update_fps:
     mov [fps_display], eax
     mov dword [fps_counter], 0
 .no_fps_update:
+    ret
+
+; ============================================================================
+; hud_render_death_screen - Render gray overlay and respawn timer when dead
+; ============================================================================
+global hud_render_death_screen
+hud_render_death_screen:
+    ; Check if player is dead
+    lea rax, [rel ent_state]
+    cmp byte [rax + PLAYER_ID], STATE_DEAD
+    jne .death_screen_done
+
+    ; Draw semi-transparent dark overlay (dark rectangles with gaps for "transparency")
+    ; Top half overlay
+    mov edi, 0
+    mov esi, 0
+    mov edx, WINDOW_WIDTH
+    mov ecx, WINDOW_HEIGHT / 2
+    mov r8d, 0xFF111111         ; very dark gray
+    call render_rect
+
+    ; Bottom half overlay (above HUD)
+    mov edi, 0
+    mov esi, WINDOW_HEIGHT / 2
+    mov edx, WINDOW_WIDTH
+    mov ecx, HUD_Y - WINDOW_HEIGHT / 2
+    mov r8d, 0xFF111111
+    call render_rect
+
+    ; "RESPAWN:" label centered
+    lea rdi, [rel str_respawn]
+    mov esi, WINDOW_WIDTH / 2 - 50
+    mov edx, WINDOW_HEIGHT / 2 - 20
+    mov ecx, COLOR_RED
+    call render_string
+
+    ; Respawn timer (convert frames to seconds)
+    lea rax, [rel ent_respawn_timer]
+    mov eax, [rax + PLAYER_ID * 4]
+    ; Remaining = CHAMPION_RESPAWN - current_timer
+    mov ecx, CHAMPION_RESPAWN
+    sub ecx, eax
+    test ecx, ecx
+    jg .show_timer
+    xor ecx, ecx
+.show_timer:
+    ; Convert frames to seconds (divide by 60)
+    mov eax, ecx
+    xor edx, edx
+    mov ecx, 60
+    div ecx
+    mov edi, eax
+    mov esi, WINDOW_WIDTH / 2 + 20
+    mov edx, WINDOW_HEIGHT / 2 - 20
+    mov ecx, COLOR_WHITE
+    call render_number
+
+.death_screen_done:
     ret
