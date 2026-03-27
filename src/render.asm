@@ -252,7 +252,8 @@ render_rect:
 ; ============================================================================
 ; render_circle - Draw filled circle (for champions/entities)
 ; edi = center_x, esi = center_y, edx = radius, ecx = color
-; Midpoint circle algorithm with horizontal line fills
+; Algorithm: for each y from (cy-r) to (cy+r), compute horizontal span
+; via x^2 + y^2 <= r^2, write directly to framebuffer
 ; ============================================================================
 global render_circle
 render_circle:
@@ -268,43 +269,210 @@ render_circle:
     mov r14d, edx           ; radius
     mov r15d, ecx           ; color
 
-    ; Draw filled circle using horizontal scan lines
-    ; For each y from -radius to +radius, calculate x extent
-    mov ebp, r14d
-    neg ebp                 ; y = -radius
+    ; Precompute r^2
+    mov eax, r14d
+    imul eax, eax
+    mov ebx, eax            ; ebx = r^2
+
+    ; y_start = cy - radius
+    mov ebp, r13d
+    sub ebp, r14d           ; ebp = current screen y
+
+    ; y_end = cy + radius (inclusive)
+    mov r8d, r13d
+    add r8d, r14d           ; r8d = last screen y
+
+    ; Get framebuffer base
+    mov r9, [framebuffer]
+    test r9, r9
+    jz .circle_done
 
 .circle_y_loop:
-    cmp ebp, r14d
+    cmp ebp, r8d
     jg .circle_done
 
-    ; Calculate x extent: x = sqrt(r^2 - y^2)
-    mov eax, r14d
-    imul eax, eax           ; r^2
-    mov ecx, ebp
-    imul ecx, ecx           ; y^2
-    sub eax, ecx            ; r^2 - y^2
-    js .circle_next_y       ; skip if negative (shouldn't happen)
+    ; Clip y to window bounds
+    cmp ebp, 0
+    jl .circle_next_y
+    cmp ebp, WINDOW_HEIGHT
+    jge .circle_done         ; past bottom, we're done (y increases)
 
-    ; Integer sqrt using FPU
-    cvtsi2sd xmm0, eax
+    ; dy = current_y - cy
+    mov eax, ebp
+    sub eax, r13d           ; eax = dy
+    imul eax, eax           ; eax = dy^2
+    mov ecx, ebx
+    sub ecx, eax            ; ecx = r^2 - dy^2
+    js .circle_next_y       ; skip if negative
+
+    ; x_extent = isqrt(r^2 - dy^2)
+    cvtsi2sd xmm0, ecx
     vsqrtsd xmm0, xmm0, xmm0
-    cvttsd2si ebx, xmm0    ; ebx = x extent
+    cvttsd2si ecx, xmm0    ; ecx = x_extent
 
-    ; Draw horizontal line from (cx-x, cy+y) to (cx+x, cy+y)
+    ; x_left = cx - x_extent, x_right = cx + x_extent
     mov edi, r12d
-    sub edi, ebx            ; x = cx - extent
-    mov esi, r13d
-    add esi, ebp            ; y = cy + y_offset
-    lea edx, [ebx * 2 + 1] ; width = 2*extent + 1
-    mov ecx, 1              ; height = 1
-    mov r8d, r15d           ; color
-    call render_rect
+    sub edi, ecx            ; edi = x_left
+    mov esi, r12d
+    add esi, ecx            ; esi = x_right
+
+    ; Clip x_left
+    cmp edi, 0
+    jge .circle_no_clip_left
+    xor edi, edi
+.circle_no_clip_left:
+    ; Clip x_right
+    cmp esi, WINDOW_WIDTH - 1
+    jle .circle_no_clip_right
+    mov esi, WINDOW_WIDTH - 1
+.circle_no_clip_right:
+
+    ; Check if span is valid
+    cmp edi, esi
+    jg .circle_next_y
+
+    ; Calculate framebuffer pointer for (x_left, current_y)
+    imul eax, ebp, WINDOW_WIDTH
+    add eax, edi
+    shl eax, 2
+    lea rax, [r9 + rax]    ; rax = pixel pointer
+
+    ; Pixel count = x_right - x_left + 1
+    mov edx, esi
+    sub edx, edi
+    inc edx                 ; edx = pixel count
+
+    ; Fill pixels
+.circle_fill:
+    mov [rax], r15d
+    add rax, 4
+    dec edx
+    jnz .circle_fill
 
 .circle_next_y:
     inc ebp
     jmp .circle_y_loop
 
 .circle_done:
+    pop rbp
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; ============================================================================
+; render_line - Draw a line using Bresenham's algorithm
+; edi = x0, esi = y0, edx = x1, ecx = y1, r8d = color
+; Writes directly to framebuffer, clips pixels to window bounds
+; ============================================================================
+global render_line
+render_line:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    push rbp
+
+    ; Save parameters
+    mov r12d, edi           ; x0 (current x)
+    mov r13d, esi           ; y0 (current y)
+    mov r14d, edx           ; x1
+    mov r15d, ecx           ; y1
+    mov ebp, r8d            ; color
+
+    ; Get framebuffer base
+    mov r9, [framebuffer]
+    test r9, r9
+    jz .line_done
+
+    ; dx = abs(x1 - x0)
+    mov eax, r14d
+    sub eax, r12d           ; eax = x1 - x0
+    mov ecx, eax
+    sar ecx, 31             ; sign extend
+    xor eax, ecx
+    sub eax, ecx            ; eax = abs(x1 - x0)
+    mov r10d, eax           ; r10d = dx
+
+    ; sx = (x0 < x1) ? 1 : -1
+    mov edi, 1
+    cmp r12d, r14d
+    jl .line_sx_done
+    neg edi
+.line_sx_done:
+    ; edi = sx
+
+    ; dy = -abs(y1 - y0)
+    mov eax, r15d
+    sub eax, r13d           ; eax = y1 - y0
+    mov ecx, eax
+    sar ecx, 31
+    xor eax, ecx
+    sub eax, ecx            ; eax = abs(y1 - y0)
+    neg eax                 ; eax = -abs(y1 - y0)
+    mov r11d, eax           ; r11d = dy (negative)
+
+    ; sy = (y0 < y1) ? 1 : -1
+    mov esi, 1
+    cmp r13d, r15d
+    jl .line_sy_done
+    neg esi
+.line_sy_done:
+    ; esi = sy
+
+    ; err = dx + dy
+    mov ebx, r10d
+    add ebx, r11d           ; ebx = err
+
+.line_loop:
+    ; Plot pixel at (r12d, r13d) if within bounds
+    cmp r12d, 0
+    jl .line_skip_pixel
+    cmp r12d, WINDOW_WIDTH
+    jge .line_skip_pixel
+    cmp r13d, 0
+    jl .line_skip_pixel
+    cmp r13d, WINDOW_HEIGHT
+    jge .line_skip_pixel
+
+    ; Write pixel to framebuffer
+    imul eax, r13d, WINDOW_WIDTH
+    add eax, r12d
+    shl eax, 2
+    mov [r9 + rax], ebp
+
+.line_skip_pixel:
+    ; Check if we reached the endpoint
+    cmp r12d, r14d
+    jne .line_not_done
+    cmp r13d, r15d
+    je .line_done
+.line_not_done:
+
+    ; e2 = 2 * err
+    mov eax, ebx
+    shl eax, 1              ; eax = e2 = 2 * err
+
+    ; if e2 >= dy: err += dy, x += sx
+    cmp eax, r11d
+    jl .line_no_x_step
+    add ebx, r11d           ; err += dy
+    add r12d, edi           ; x += sx
+.line_no_x_step:
+
+    ; if e2 <= dx: err += dx, y += sy
+    cmp eax, r10d
+    jg .line_no_y_step
+    add ebx, r10d           ; err += dx
+    add r13d, esi           ; y += sy
+.line_no_y_step:
+
+    jmp .line_loop
+
+.line_done:
     pop rbp
     pop r15
     pop r14

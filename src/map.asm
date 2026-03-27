@@ -25,6 +25,9 @@ tile_colors:
     dd COLOR_BASE_RED       ; 5 = TILE_BASE_RED
     dd COLOR_JUNGLE_GREEN   ; 6 = TILE_JUNGLE
     dd COLOR_BUSH_GREEN     ; 7 = TILE_BUSH
+    dd COLOR_SHOP_GOLD      ; 8 = TILE_SHOP_BLUE
+    dd COLOR_SHOP_GOLD      ; 9 = TILE_SHOP_RED
+    dd COLOR_ALCOVE_DARK    ; 10 = TILE_ALCOVE
 
 ; Waypoints for lanes (world coordinates as pairs of dwords: x, y)
 ; Mid lane waypoints for blue team

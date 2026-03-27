@@ -16,6 +16,11 @@
 %define SYS_IOCTL       16
 %define SYS_SOCKET      41
 %define SYS_CONNECT     42
+%define SYS_SENDTO      44
+%define SYS_RECVFROM    45
+%define SYS_BIND        49
+%define SYS_LISTEN      50
+%define SYS_ACCEPT      43
 %define SYS_SHMGET      29
 %define SYS_SHMAT       30
 %define SYS_SHMCTL      31
