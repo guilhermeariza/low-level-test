@@ -472,8 +472,8 @@ ai_update:
     mov ecx, 1                      ; jungler/support -> mid lane target
 .lane_valid:
     ; ecx = lane index (0-2), each entry is 2 dwords (8 bytes)
-    mov eax, ecx
-    shl eax, 3                      ; eax = lane * 8 (offset into target array)
+    mov r8d, ecx
+    shl r8d, 3                      ; r8d = lane * 8 (offset into target array)
 
     lea rax, [rel ent_team]
     movzx edx, byte [rax + r12]
@@ -488,8 +488,8 @@ ai_update:
     lea rsi, [rel ai_lane_targets_red]
 
 .lane_set_target:
-    ; eax = offset into lane target array
-    movsxd rax, eax
+    ; r8d = offset into lane target array
+    movsxd rax, r8d
     mov ecx, [rsi + rax]            ; target x (dword)
     vcvtsi2sd xmm0, xmm0, ecx
     lea rdi, [rel ent_target_x]

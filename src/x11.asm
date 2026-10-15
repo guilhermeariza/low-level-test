@@ -279,7 +279,7 @@ x11_query_shm_extension:
     ; QueryExtension request
     mov byte [rbx], X11_QUERY_EXTENSION  ; opcode
     mov byte [rbx + 1], 0               ; unused
-    mov word [rbx + 2], 5               ; request length in 4-byte units: (8 + 7 + pad) / 4 = 5
+    mov word [rbx + 2], 4               ; request length: (8 + 7 + 1 pad) / 4 = 4
     mov word [rbx + 4], shm_ext_name_len ; name length = 7
     mov word [rbx + 6], 0               ; unused
 
@@ -292,7 +292,7 @@ x11_query_shm_extension:
     mov byte [rbx + 15], 0
 
     lea rdi, [rbx]
-    mov rsi, 20             ; 5 * 4 = 20 bytes
+    mov rsi, 16             ; 4 * 4 = 16 bytes
     call x11_send
 
     ; Read reply (32 bytes)
@@ -369,7 +369,7 @@ x11_create_window:
     mov byte [rbx], X11_CREATE_WINDOW    ; opcode
     movzx eax, byte [x11_root_depth]
     mov byte [rbx + 1], al               ; depth
-    mov word [rbx + 2], 12              ; request length (12 * 4 = 48 bytes)
+    mov word [rbx + 2], 10              ; request length (8 hdr + 24 fixed + 2 values = 40 bytes)
     mov eax, [x11_window_id]
     mov [rbx + 4], eax                   ; window id
     mov eax, [x11_root_window]
@@ -388,12 +388,8 @@ x11_create_window:
     mov dword [rbx + 32], COLOR_BLACK
     ; EventMask value
     mov dword [rbx + 36], EVENT_KEY_PRESS | EVENT_KEY_RELEASE | EVENT_BUTTON_PRESS | EVENT_BUTTON_RELEASE | EVENT_POINTER_MOTION | EVENT_EXPOSURE | EVENT_STRUCTURE_NOTIFY
-    ; Pad remaining
-    mov dword [rbx + 40], 0
-    mov dword [rbx + 44], 0
-
     lea rdi, [rbx]
-    mov rsi, 48
+    mov rsi, 40
     call x11_send
 
     ; Set window title via ChangeProperty
